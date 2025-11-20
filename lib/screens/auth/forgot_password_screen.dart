@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // <--- ADDED: Good practice 
 import '../../services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({Key? key}) : super(key: key);
+  const ForgotPasswordScreen({super.key});
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();

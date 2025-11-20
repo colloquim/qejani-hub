@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class WriteReviewScreen extends StatefulWidget {
-  const WriteReviewScreen({Key? key}) : super(key: key);
+  const WriteReviewScreen({super.key});
 
   @override
   State<WriteReviewScreen> createState() => _WriteReviewScreenState();

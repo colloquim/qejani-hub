@@ -1,7 +1,7 @@
 // services/auth_service.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user.dart';
+import '../models/user_model.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -11,7 +11,7 @@ class AuthService {
   Stream<User?> get user => _auth.authStateChanges();
 
   // ------------------------------
-  // SIGN UP
+  // SIGN UP (Matches the call from login_screen.dart)
   // ------------------------------
   Future<UserCredential> signUp({
     required String email,
@@ -20,8 +20,6 @@ class AuthService {
     required String role, // renter or landlord
   }) async {
     try {
-      print('Creating user: $email');
-
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -35,7 +33,7 @@ class AuthService {
         );
       }
 
-      // Save user data in Firestore
+      // Save user data in Firestore (using DatabaseService for structure)
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': email,
@@ -44,27 +42,22 @@ class AuthService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      print('Firestore write success');
       return userCredential;
-    } on FirebaseAuthException catch (e) {
-      print('Auth error: ${e.code} - ${e.message}');
+    } on FirebaseAuthException {
       rethrow;
     } catch (e) {
-      print('Other sign up error: $e');
       rethrow;
     }
   }
 
   // ------------------------------
-  // SIGN IN (returns role)
+  // SIGN IN (Matches the call from login_screen.dart)
   // ------------------------------
   Future<String> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      print('Logging in: $email');
-
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -86,15 +79,12 @@ class AuthService {
         UserModel model =
             UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
 
-        print('Login role: ${model.role}');
         return model.role;
       }
 
       // Default if user document is missing
-      print('User doc missing. Default role: renter');
       return 'renter';
-    } on FirebaseAuthException catch (e) {
-      print('Sign in failed: ${e.code} - ${e.message}');
+    } on FirebaseAuthException {
       rethrow;
     }
   }
@@ -104,7 +94,13 @@ class AuthService {
   // ------------------------------
   Future<void> signOut() async {
     await _auth.signOut();
-    print('Signed out');
+  }
+
+  // ------------------------------
+  // 🔑 NEW METHOD: GET CURRENT USER ID (Fixes dashboard errors)
+  // ------------------------------
+  String? getCurrentUserId() {
+    return _auth.currentUser?.uid;
   }
 
   // ------------------------------
@@ -113,32 +109,8 @@ class AuthService {
   Future<void> sendPasswordResetEmail({required String email}) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
-      print('Reset email sent to $email');
-    } on FirebaseAuthException catch (e) {
-      print('Reset error: ${e.code} - ${e.message}');
+    } on FirebaseAuthException {
       rethrow;
-    }
-  }
-
-  // ------------------------------
-  // FETCH USER MODEL BY UID
-  // ------------------------------
-  Future<UserModel?> getUserData(String uid) async {
-    try {
-      DocumentSnapshot doc =
-          await _firestore.collection('users').doc(uid).get();
-
-      if (doc.exists && doc.data() != null) {
-        return UserModel.fromMap(
-          doc.data() as Map<String, dynamic>,
-          doc.id,
-        );
-      }
-
-      return null;
-    } catch (e) {
-      print('Error loading user data: $e');
-      return null;
     }
   }
 
@@ -159,10 +131,8 @@ class AuthService {
           doc.id,
         );
       }
-
       return null;
     } catch (e) {
-      print('Error fetching current user model: $e');
       return null;
     }
   }

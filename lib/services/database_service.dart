@@ -5,61 +5,95 @@ import '../models/apartment.dart';
 import '../models/booking.dart';
 import '../models/user_model.dart';
 
-// Assuming global variables are available for use in this file:
-// const String appId = 'qejani-hub';
-// final FirebaseFirestore _db = FirebaseFirestore.instance;
-
 class DatabaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _appId =
-      'qejani-hub'; // Use a fixed ID for the scope of this file
+  final String _appId = 'qejani-hub';
 
-  // --- Utility for Paths ---
-  // Public data is shared across all users (apartments, landlords)
-  CollectionReference get _apartmentsCollection => _db
+  String? getCurrentUserId() {
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  CollectionReference<Map<String, dynamic>> get _apartmentsCollection => _db
       .collection('artifacts')
       .doc(_appId)
       .collection('public')
       .doc('data')
-      .collection('apartments');
+      .collection('apartments')
+      .withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data()!,
+        toFirestore: (data, _) => data,
+      );
 
-  CollectionReference get _usersCollection => _db
+  CollectionReference<Map<String, dynamic>> get _usersCollection => _db
       .collection('artifacts')
       .doc(_appId)
       .collection('public')
       .doc('data')
-      .collection('users');
-
-  // Private data for the currently authenticated user (bookings)
-  CollectionReference _bookingsCollection(String userId) => _db
-      .collection('artifacts')
-      .doc(_appId)
       .collection('users')
-      .doc(userId)
-      .collection('bookings');
+      .withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data()!,
+        toFirestore: (data, _) => data,
+      );
 
-  // Public bookings collection for landlord to see all requests
-  CollectionReference get _publicBookingsCollection => _db
+  CollectionReference<Map<String, dynamic>> _bookingsCollection(
+          String userId) =>
+      _db
+          .collection('artifacts')
+          .doc(_appId)
+          .collection('users')
+          .doc(userId)
+          .collection('bookings')
+          .withConverter<Map<String, dynamic>>(
+            fromFirestore: (snap, _) => snap.data()!,
+            toFirestore: (data, _) => data,
+          );
+
+  CollectionReference<Map<String, dynamic>> get _publicBookingsCollection => _db
       .collection('artifacts')
       .doc(_appId)
       .collection('public')
       .doc('data')
-      .collection('bookings');
+      .collection('bookings')
+      .withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data()!,
+        toFirestore: (data, _) => data,
+      );
 
-  // --- APARTMENT METHODS ---
+  Future<void> addApartment(Apartment apartment) async {
+    try {
+      await _apartmentsCollection.add(apartment.toMap());
+      print("Apartment added successfully.");
+    } catch (e) {
+      print("Error adding apartment: $e");
+      throw Exception("Failed to add apartment.");
+    }
+  }
+
+  Future<List<Apartment>> getApartmentsByLandlord(String landlordId) async {
+    try {
+      final snapshot = await _apartmentsCollection
+          .where('landlordId', isEqualTo: landlordId)
+          .get();
+
+      return snapshot.docs.map((doc) => Apartment.fromFirestore(doc)).toList();
+    } catch (e) {
+      print("Error fetching landlord apartments: $e");
+      return [];
+    }
+  }
 
   Future<List<Apartment>> getAllApartments({String? location}) async {
     try {
-      Query query = _apartmentsCollection;
+      Query<Map<String, dynamic>> query = _apartmentsCollection;
+
       if (location != null && location != 'All Locations') {
-        // This query works best if 'location' is stored as a string, matching the search term.
         query = query.where('location', isEqualTo: location);
       }
 
       final snapshot = await query.get();
       return snapshot.docs.map((doc) => Apartment.fromFirestore(doc)).toList();
     } catch (e) {
-      print("Error fetching all apartments: $e");
+      print("Error fetching apartments: $e");
       return [];
     }
   }
@@ -67,36 +101,104 @@ class DatabaseService {
   Future<Apartment?> getApartmentById(String id) async {
     try {
       final doc = await _apartmentsCollection.doc(id).get();
-      if (doc.exists) {
-        return Apartment.fromFirestore(doc);
-      }
+      if (doc.exists) return Apartment.fromFirestore(doc);
       return null;
     } catch (e) {
-      print("Error fetching apartment by ID: $e");
+      print("Error fetching apartment: $e");
       return null;
     }
   }
 
-  // --- BOOKING METHODS ---
+  Future<void> updateApartment(Apartment apartment) async {
+    try {
+      await _apartmentsCollection.doc(apartment.id).update(apartment.toMap());
+      print("Apartment updated.");
+    } catch (e) {
+      print("Error updating apartment: $e");
+      throw Exception("Update failed.");
+    }
+  }
 
-  // 🔑 NEW: Method to create a new viewing request (booking)
+  Future<void> deleteApartment(String apartmentId) async {
+    try {
+      await _apartmentsCollection.doc(apartmentId).delete();
+      print("Apartment deleted.");
+    } catch (e) {
+      print("Error deleting apartment: $e");
+      throw Exception("Delete failed.");
+    }
+  }
+
+  Future<List<Apartment>> getApartmentsByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+
+    if (ids.length > 10) ids = ids.sublist(0, 10);
+
+    try {
+      final snapshot = await _apartmentsCollection
+          .where(FieldPath.documentId, whereIn: ids)
+          .get();
+
+      return snapshot.docs.map((doc) => Apartment.fromFirestore(doc)).toList();
+    } catch (e) {
+      print("Error fetching apartments by ids: $e");
+      return [];
+    }
+  }
+
+  Future<List<String>> getFavoriteApartmentIds(String userId) async {
+    try {
+      final user = await getUserData(userId);
+      return user.favoriteApartmentIds;
+    } catch (e) {
+      print("Error reading favorites: $e");
+      return [];
+    }
+  }
+
+  Future<void> toggleFavorite(String apartmentId, String userId) async {
+    final ref = _usersCollection.doc(userId);
+
+    try {
+      await _db.runTransaction((txn) async {
+        final snap = await txn.get(ref);
+
+        if (!snap.exists) throw Exception("User not found");
+
+        final data = snap.data()!;
+        final current = (data['favoriteApartmentIds'] as List<dynamic>? ?? [])
+            .map((e) => e.toString())
+            .toList();
+
+        if (current.contains(apartmentId)) {
+          txn.update(ref, {
+            'favoriteApartmentIds': FieldValue.arrayRemove([apartmentId])
+          });
+        } else {
+          txn.update(ref, {
+            'favoriteApartmentIds': FieldValue.arrayUnion([apartmentId])
+          });
+        }
+      });
+    } catch (e) {
+      print("Error toggling favorite: $e");
+      throw Exception("Failed to update favorite.");
+    }
+  }
+
   Future<void> createBooking({
     required String apartmentId,
     required String landlordId,
     required DateTime preferredDate,
     required String message,
   }) async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      print("Error: No authenticated user to create booking.");
-      throw Exception("User must be signed in to request a viewing.");
-    }
-    final renterId = currentUser.uid;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception("User not logged in.");
 
-    final newBooking = Booking(
-      id: '', // Firestore will generate this ID
+    final booking = Booking(
+      id: '',
       apartmentId: apartmentId,
-      renterId: renterId,
+      renterId: user.uid,
       landlordId: landlordId,
       dateRequested: DateTime.now(),
       viewingDate: preferredDate,
@@ -105,33 +207,53 @@ class DatabaseService {
     );
 
     try {
-      // 1. Save the booking in the Renter's private collection
-      await _bookingsCollection(renterId).add(newBooking.toMap());
-
-      // 2. Save the booking in a public collection for the Landlord to query (optional, but good for cross-user views)
-      // A more robust solution might index this by Landlord ID, but for MVP, a public list is fine.
-      await _publicBookingsCollection.add(newBooking.toMap());
-
-      print("Booking created successfully!");
+      await _bookingsCollection(user.uid).add(booking.toMap());
+      await _publicBookingsCollection.add(booking.toMap());
     } catch (e) {
       print("Error creating booking: $e");
-      throw Exception("Failed to submit booking request.");
+      throw Exception("Failed to submit request.");
     }
   }
 
-  Future<List<Booking>> getMyBookings({required String renterId}) async {
+  Future<List<Booking>> getRequestsByLandlord(String landlordId) async {
     try {
-      final snapshot = await _bookingsCollection(renterId)
-          .orderBy('dateRequested', descending: true)
+      final snapshot = await _publicBookingsCollection
+          .where('landlordId', isEqualTo: landlordId)
+          .orderBy('viewingDate')
           .get();
+
       return snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList();
     } catch (e) {
-      print("Error fetching my bookings: $e");
+      print("Error loading landlord requests: $e");
       return [];
     }
   }
 
-  // --- USER METHODS ---
+  Future<List<Booking>> getMyBookings(String renterId) async {
+    try {
+      final snapshot = await _bookingsCollection(renterId)
+          .orderBy('dateRequested', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList();
+    } catch (e) {
+      print("Error loading bookings: $e");
+      return [];
+    }
+  }
+
+  Future<UserModel> getUserData(String uid) async {
+    try {
+      final doc = await _usersCollection.doc(uid).get();
+
+      if (!doc.exists) throw Exception("User does not exist.");
+
+      return UserModel.fromFirestore(doc);
+    } catch (e) {
+      print("Error loading user: $e");
+      rethrow;
+    }
+  }
 
   Future<void> createUser({
     required String uid,
@@ -143,14 +265,16 @@ class DatabaseService {
       uid: uid,
       email: email,
       role: role,
-      name: name ?? 'User',
+      fullName: name ?? 'User',
       createdAt: DateTime.now(),
     );
+
     try {
       await _usersCollection.doc(uid).set(user.toMap());
-      print("User document created for $role: $uid");
+      print("User created.");
     } catch (e) {
-      print("Error creating user document: $e");
+      print("Error creating user: $e");
+      throw Exception("User creation failed.");
     }
   }
 }

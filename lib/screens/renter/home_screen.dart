@@ -1,27 +1,24 @@
 // screens/renter/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/apartment.dart';
 import '../../../services/database_service.dart';
 import '../../../services/auth_service.dart';
+import '../../widgets/apartment_featured_card.dart';
+import '../../widgets/apartment_list_item.dart';
 
-// 🔑 CONVERTED to StatefulWidget to manage filter state and data fetching
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class RenterHomeScreen extends StatefulWidget {
+  const RenterHomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<RenterHomeScreen> createState() => _RenterHomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // State for filtering
+class _RenterHomeScreenState extends State<RenterHomeScreen> {
   String? _selectedLocation;
-  // Future to hold the currently filtered list of apartments
   late Future<List<Apartment>> _apartmentsFuture;
 
-  // Placeholder list of popular Nairobi locations for the filter
-  final List<String> nairobiLocations = [
+  final List<String> nairobiLocations = const [
     'All Locations',
     'Kilimani',
     'Westlands',
@@ -29,12 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
     'Upper Hill',
     'Kileleshwa',
     'Parklands',
-    'Karen'
-        'Pangani',
+    'Karen',
+    'Pangani',
     'Gigiri',
     'Riverside',
-    'Hurlingham'
-        'Ngong Road',
+    'Hurlingham',
+    'Ngong Road',
     'Ruaka',
     'Thika Road',
     'Embakasi',
@@ -47,196 +44,33 @@ class _HomeScreenState extends State<HomeScreen> {
     'Dandora',
     'Kawangware',
     'Gikambura',
-    'Zambezi'
-        'Kahawa'
-        'Njiru'
-        'Utawala'
-        'Kayole'
-        'Kariobangi'
-        'Mathare'
-        'Kibera'
-        'Rongai'
+    'Zambezi',
+    'Kahawa',
+    'Njiru',
+    'Utawala',
+    'Kayole',
+    'Kariobangi',
+    'Mathare',
+    'Kibera',
+    'Rongai',
   ];
 
   @override
   void initState() {
     super.initState();
-    // Initialize with a fetch of all apartments (no filter)
+    _selectedLocation = nairobiLocations.first;
     _fetchApartments();
   }
 
-  // Method to fetch data, applying the current filter
   void _fetchApartments() {
-    // If _selectedLocation is 'All Locations' or null, DatabaseService will fetch all.
-    String? filterLocation =
+    final filterLocation =
         (_selectedLocation == 'All Locations' || _selectedLocation == null)
             ? null
             : _selectedLocation;
 
     _apartmentsFuture =
         DatabaseService().getAllApartments(location: filterLocation);
-    setState(() {}); // Rebuild the FutureBuilders
-  }
-
-  // --- Component Builders ---
-
-  // 1. Location Filter & Search
-  Widget _buildLocationFilter(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Find Your Next Home",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-
-        // Dropdown for Location Filtering
-        DropdownButtonFormField<String>(
-          decoration: InputDecoration(
-            hintText: 'Select a location in Nairobi',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            filled: true,
-            fillColor: Colors.grey.shade100,
-            prefixIcon: const Icon(Icons.location_on),
-          ),
-          // Set initial value to 'All Locations'
-          value: _selectedLocation ?? nairobiLocations.first,
-          items: nairobiLocations.map((String location) {
-            return DropdownMenuItem<String>(
-              value: location,
-              child: Text(location),
-            );
-          }).toList(),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedLocation = newValue;
-            });
-            _fetchApartments(); // Re-fetch data whenever the filter changes
-          },
-        ),
-
-        const SizedBox(height: 12),
-        // Dedicated Search Button (for navigating to a full search screen)
-        TextFormField(
-          readOnly: true,
-          decoration: InputDecoration(
-            hintText: 'Tap here for advanced search...',
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            filled: true,
-            fillColor: Colors.grey.shade100,
-          ),
-          onTap: () => context.go('/search'),
-        ),
-      ],
-    );
-  }
-
-  // 2. Featured Section (Horizontal Carousel)
-  Widget _buildFeaturedSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _selectedLocation == null || _selectedLocation == 'All Locations'
-              ? "Featured Deals"
-              : "Featured in $_selectedLocation",
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 250, // Increased height slightly for better card view
-          child: FutureBuilder<List<Apartment>>(
-            // 🔑 IMPORTANT: Use the state-managed future for filtering
-            future: _apartmentsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(child: Text("No featured listings found."));
-              }
-
-              // Limit to first 3 for featured display
-              final featuredList = snapshot.data!.take(3).toList();
-
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: featuredList.length,
-                itemBuilder: (context, index) {
-                  final apartment = featuredList[index];
-                  return _ApartmentCard(apartment: apartment, isFeatured: true);
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 3. All Apartments List
-  Widget _buildAllApartmentsList(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              "All Listings",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            // Navigate to a dedicated list screen for better full list experience
-            TextButton(
-              onPressed: () => context.go('/apartment-list'),
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        FutureBuilder<List<Apartment>>(
-          // 🔑 IMPORTANT: Use the state-managed future for filtering
-          future: _apartmentsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return Center(
-                  child:
-                      Text('Error loading data: ${snapshot.error.toString()}'));
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(
-                  child: Text(
-                _selectedLocation == null ||
-                        _selectedLocation == 'All Locations'
-                    ? "No apartments listed yet."
-                    : "No apartments found in $_selectedLocation.",
-              ));
-            }
-
-            return ListView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final apartment = snapshot.data![index];
-                return _ApartmentCard(apartment: apartment);
-              },
-            );
-          },
-        ),
-      ],
-    );
+    setState(() {});
   }
 
   @override
@@ -246,133 +80,139 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Qejani Hub'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.favorite_border),
-            onPressed: () => context.go('/favorites'),
-            tooltip: 'Favorites',
+            icon: const Icon(Icons.search),
+            onPressed: () => context.push('/search'),
           ),
           IconButton(
-            icon: const Icon(Icons
-                .logout), // Changed settings icon to logout for easy testing
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => context.push('/favorites'), // ✅ Push favorites
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
             onPressed: () async {
               await AuthService().signOut();
-              context.go('/login');
+              context.go('/onboarding'); // Go to onboarding after logout
             },
-            tooltip: 'Logout',
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Location Filter Component
-            _buildLocationFilter(context),
+            // Location Dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedLocation,
+              items: nairobiLocations
+                  .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedLocation = value);
+                  _fetchApartments();
+                }
+              },
+              decoration: InputDecoration(
+                labelText: 'Select Location',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
             const SizedBox(height: 24),
 
-            // 2. Featured Section (Horizontal Scroll)
-            _buildFeaturedSection(context),
+            // Featured Listings
+            const Text(
+              'Featured Listings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
+            FutureBuilder<List<Apartment>>(
+              future: _apartmentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return SizedBox(
+                    height: 220,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: 3,
+                      itemBuilder: (_, __) => const Card(
+                        margin: EdgeInsets.only(right: 12),
+                        child: SizedBox(width: 200, height: 200),
+                      ),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Error loading featured listings.',
+                        style: TextStyle(color: Colors.red)),
+                  );
+                }
+
+                final featured = snapshot.data!.take(3).toList();
+                if (featured.isEmpty) {
+                  return const Center(
+                    child: Text('Nothing featured right now.',
+                        style: TextStyle(color: Colors.grey)),
+                  );
+                }
+
+                return SizedBox(
+                  height: 220,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: featured.length,
+                    itemBuilder: (context, index) =>
+                        ApartmentFeaturedCard(apartment: featured[index]),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 24),
 
-            // 3. All Apartments Section
-            _buildAllApartmentsList(context),
+            // All Apartments
+            const Text(
+              'All Apartments',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<List<Apartment>>(
+              future: _apartmentsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 200,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const SizedBox.shrink();
+                }
+
+                final allApts = snapshot.data!;
+                if (allApts.isEmpty) {
+                  return const Center(
+                      child: Text('No apartments found.',
+                          style: TextStyle(color: Colors.grey)));
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: allApts.length,
+                  itemBuilder: (context, index) =>
+                      ApartmentListItem(apartment: allApts[index]),
+                );
+              },
+            ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/my-bookings'),
+        onPressed: () => context.push('/my-bookings'),
         child: const Icon(Icons.book_online),
-        tooltip: 'My Bookings',
-      ),
-    );
-  }
-}
-
-// --- Reusable Apartment Card Widget (Kept as StatelessWidget for purity) ---
-class _ApartmentCard extends StatelessWidget {
-  final Apartment apartment;
-  final bool isFeatured;
-
-  const _ApartmentCard({required this.apartment, this.isFeatured = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final double cardWidth = isFeatured ? 280 : double.infinity;
-    final double imageRatio = isFeatured ? 1.5 : 2.5;
-
-    return InkWell(
-      // Navigate to detail screen using a route path that accepts the ID
-      onTap: () => context.go('/apartment/${apartment.id}'),
-      child: Card(
-        margin: EdgeInsets.only(bottom: 16, right: isFeatured ? 16 : 0),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: SizedBox(
-          width: cardWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image Section
-              AspectRatio(
-                aspectRatio: imageRatio,
-                child: ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: Image.network(
-                    apartment.images.first,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade300,
-                      child: const Center(
-                          child:
-                              Icon(Icons.image, size: 40, color: Colors.grey)),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Text Details
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ksh ${apartment.price.toStringAsFixed(0)} / mo',
-                      style: TextStyle(
-                        fontSize: isFeatured ? 16 : 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      apartment.title,
-                      style: TextStyle(
-                        fontSize: isFeatured ? 14 : 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          apartment.location,
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

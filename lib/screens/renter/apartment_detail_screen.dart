@@ -1,362 +1,250 @@
 // screens/renter/apartment_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../models/apartment.dart';
 import '../../../services/database_service.dart';
-import 'package:intl/intl.dart'; // Import for date formatting
 
-class ApartmentDetailScreen extends StatelessWidget {
-  // Apartment ID passed via go_router path parameter
+class ApartmentDetailScreen extends StatefulWidget {
   final String apartmentId;
 
-  const ApartmentDetailScreen({Key? key, required this.apartmentId})
-      : super(key: key);
-
-  void _showRequestViewingModal(BuildContext context, Apartment apartment) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: _RequestViewingForm(apartment: apartment),
-      ),
-    );
-  }
+  const ApartmentDetailScreen({super.key, required this.apartmentId});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Property Details'),
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      body: FutureBuilder<Apartment?>(
-        future: DatabaseService().getApartmentById(apartmentId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-                child: Text('Error loading details: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Apartment not found.'));
-          }
-
-          final apartment = snapshot.data!;
-          return Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 80.0), // Padding for FAB
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. Image Carousel (Mockup)
-                    SizedBox(
-                      height: 300,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            apartment.images.isNotEmpty
-                                ? apartment.images.first
-                                : 'https://placehold.co/600x400/CCCCCC/000000?text=Apartment+Image',
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                              color: Colors.grey.shade300,
-                              child: const Center(
-                                  child: Icon(Icons.broken_image,
-                                      size: 50, color: Colors.grey)),
-                            ),
-                          ),
-                          // Optional: Fading effect for aesthetic
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.2),
-                                  Colors.transparent,
-                                  Colors.transparent,
-                                  Colors.black.withOpacity(0.5),
-                                ],
-                                stops: const [0, 0.5, 0.7, 1],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // 2. Details Section
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ksh ${apartment.price.toStringAsFixed(0)} / month',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${apartment.title} - ${apartment.bedrooms} Bedroom in ${apartment.location}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Quick Stats (Bed/Bath)
-                          Row(
-                            children: [
-                              _buildStatIcon(
-                                  Icons.king_bed, '${apartment.bedrooms} Beds'),
-                              _buildStatIcon(Icons.bathtub,
-                                  '${apartment.bathrooms} Baths'),
-                              _buildStatIcon(
-                                  Icons.home_work, apartment.propertyType),
-                            ],
-                          ),
-                          const Divider(height: 32),
-
-                          // Description
-                          const Text('Description',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          Text(apartment.description,
-                              style: const TextStyle(fontSize: 16)),
-
-                          const Divider(height: 32),
-
-                          // Amenities (Mockup)
-                          const Text('Amenities',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _buildAmenityPill(Icons.wifi, 'Wi-Fi'),
-                              _buildAmenityPill(Icons.local_parking, 'Parking'),
-                              _buildAmenityPill(
-                                  Icons.security, '24/7 Security'),
-                              _buildAmenityPill(Icons.pets, 'Pet Friendly'),
-                            ],
-                          ),
-
-                          const SizedBox(height: 32),
-
-                          // Contact/Landlord Info (Placeholder for more advanced feature)
-                          Center(
-                            child: TextButton.icon(
-                              onPressed: () => context.go('/review-property'),
-                              icon: const Icon(Icons.rate_review),
-                              label: const Text(
-                                  'Write a Review for this property'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Floating Action Bar (Request Viewing)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _showRequestViewingModal(context, apartment),
-                      icon: const Icon(Icons.calendar_month),
-                      label: const Text('Request Viewing',
-                          style: TextStyle(fontSize: 18)),
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStatIcon(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.grey.shade700),
-          const SizedBox(width: 4),
-          Text(label,
-              style: const TextStyle(fontSize: 14, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmenityPill(IconData icon, String label) {
-    return Chip(
-      label: Text(label),
-      avatar: Icon(icon, size: 18),
-      backgroundColor: Colors.blue.shade50,
-      side: BorderSide(color: Colors.blue.shade100),
-    );
-  }
+  State<ApartmentDetailScreen> createState() => _ApartmentDetailScreenState();
 }
 
-// --- Request Viewing Form Widget ---
-class _RequestViewingForm extends StatefulWidget {
-  final Apartment apartment;
-
-  const _RequestViewingForm({required this.apartment});
+class _ApartmentDetailScreenState extends State<ApartmentDetailScreen> {
+  Apartment? _apartment;
+  bool _isLoading = true;
 
   @override
-  State<_RequestViewingForm> createState() => _RequestViewingFormState();
-}
+  void initState() {
+    super.initState();
+    _fetchApartment();
+  }
 
-class _RequestViewingFormState extends State<_RequestViewingForm> {
-  final _formKey = GlobalKey<FormState>();
-  DateTime? _selectedDate;
-  final TextEditingController _messageController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now().add(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
-    );
-    if (picked != null && picked != _selectedDate) {
+  Future<void> _fetchApartment() async {
+    try {
+      final apartment =
+          await DatabaseService().getApartmentById(widget.apartmentId);
       setState(() {
-        _selectedDate = picked;
+        _apartment = apartment;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching apartment details: $e');
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
-  void _submitRequest() async {
-    if (_formKey.currentState!.validate() && _selectedDate != null) {
-      setState(() => _isLoading = true);
-      try {
-        await DatabaseService().createBooking(
-          apartmentId: widget.apartment.id,
-          landlordId: widget.apartment.landlordId,
-          preferredDate: _selectedDate!,
-          message: _messageController.text.trim(),
-        );
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Viewing request sent successfully!')),
-        );
-        Navigator.pop(context); // Close the modal
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send request: ${e.toString()}')),
-        );
-      } finally {
-        setState(() => _isLoading = false);
-      }
-    } else if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a preferred date.')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Request Viewing',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Property: ${widget.apartment.title}',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-            ),
-            const Divider(height: 32),
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Loading Details...')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
-            // Date Picker Field
-            InkWell(
-              onTap: _isLoading ? null : () => _selectDate(context),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Preferred Viewing Date',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  _selectedDate == null
-                      ? 'Select a Date'
-                      : DateFormat('EEEE, MMM d, yyyy').format(_selectedDate!),
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+    if (_apartment == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Apartment Not Found')),
+        body: const Center(
+            child: Text('The requested apartment could not be loaded.')),
+      );
+    }
 
-            // Message Field
-            TextFormField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                labelText: 'Your Message (Optional)',
-                hintText: 'e.g., "I am available after 4 PM."',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.message),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 24),
+    final priceFormatter =
+        NumberFormat.currency(locale: 'en_KE', symbol: 'Ksh ');
 
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitRequest,
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Confirm Request',
-                        style: TextStyle(fontSize: 18),
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          // Image Slider/Header
+          SliverAppBar(
+            expandedHeight: 250.0,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildImageHeader(_apartment!.images),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildListDelegate(
+              [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Price & Status
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${priceFormatter.format(_apartment!.price)} / month',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                          _buildStatusTag(_apartment!.isAvailable),
+                        ],
                       ),
+                      const SizedBox(height: 8),
+                      // Title
+                      Text(
+                        _apartment!.title,
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      // Location
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on,
+                              size: 16, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(_apartment!.location,
+                              style: const TextStyle(
+                                  fontSize: 16, color: Colors.grey)),
+                        ],
+                      ),
+                      const Divider(height: 32),
+
+                      // Key Features
+                      _buildKeyFeatures(),
+                      const Divider(height: 32),
+
+                      // Description
+                      const Text(
+                        'Description',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_apartment!.description,
+                          style: const TextStyle(fontSize: 16)),
+                      const SizedBox(height: 50), // Footer spacing
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      // Fixed bottom action button
+      bottomNavigationBar: _buildBottomAction(context, _apartment!),
+    );
+  }
+
+  // Helper to build the image carousel/header
+  Widget _buildImageHeader(List<String> images) {
+    if (images.isEmpty) {
+      return Image.network(
+        'https://via.placeholder.com/600x400.png?text=No+Image',
+        fit: BoxFit.cover,
+      );
+    }
+    // Using a simple image for brevity, ideally this is a PageView/Carousel
+    return Image.network(
+      images.first,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          const Center(child: Icon(Icons.broken_image, size: 50)),
+    );
+  }
+
+  // Helper to build the status tag
+  Widget _buildStatusTag(bool isAvailable) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isAvailable ? Colors.green.shade100 : Colors.red.shade100,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isAvailable ? 'AVAILABLE' : 'RENTED',
+        style: TextStyle(
+          color: isAvailable ? Colors.green.shade700 : Colors.red.shade700,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  // Helper to build the feature icons
+  Widget _buildKeyFeatures() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildFeatureItem(Icons.bed, _apartment!.bedrooms, 'Bedrooms'),
+        _buildFeatureItem(Icons.bathtub, _apartment!.bathrooms, 'Bathrooms'),
+        _buildFeatureItem(Icons.home, 1, _apartment!.propertyType),
+      ],
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, int count, String label) {
+    return Column(
+      children: [
+        Icon(icon, size: 30, color: Colors.deepOrange),
+        const SizedBox(height: 4),
+        Text(count.toString(),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+
+  // Helper for the fixed bottom action bar
+  Widget _buildBottomAction(BuildContext context, Apartment apartment) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: apartment.isAvailable
+                  ? () {
+                      // Navigate to the booking request screen
+                      context.go('/apartment/${apartment.id}/request');
+                    }
+                  : null, // Disable if rented
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                backgroundColor: apartment.isAvailable
+                    ? Theme.of(context).primaryColor
+                    : Colors.grey,
+              ),
+              icon: const Icon(Icons.calendar_month, color: Colors.white),
+              label: Text(
+                apartment.isAvailable ? 'Request Viewing' : 'Rented Out',
+                style: const TextStyle(fontSize: 18, color: Colors.white),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -5,7 +5,7 @@ import '../../../models/apartment.dart';
 import '../../../services/database_service.dart';
 
 class ApartmentListScreen extends StatelessWidget {
-  const ApartmentListScreen({Key? key}) : super(key: key);
+  const ApartmentListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

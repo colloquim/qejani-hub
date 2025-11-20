@@ -63,7 +63,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 labelText: 'Select Location',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedLocation ?? nairobiLocations.first,
+              initialValue: _selectedLocation ?? nairobiLocations.first,
               items: nairobiLocations
                   .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
                   .toList(),
@@ -103,7 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 labelText: 'Bedrooms',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedBedrooms,
+              initialValue: _selectedBedrooms,
               items: bedroomOptions
                   .map((b) => DropdownMenuItem(
                       value: b, child: Text(b == 0 ? 'Any' : b.toString())))

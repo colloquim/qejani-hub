@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatelessWidget {
   // Make sure it's SettingsScreen, NOT ReviewScreen
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

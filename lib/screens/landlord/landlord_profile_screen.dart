@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class LandlordProfileScreen extends StatelessWidget {
-  const LandlordProfileScreen({Key? key}) : super(key: key);
+  const LandlordProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
